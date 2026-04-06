@@ -113,12 +113,26 @@ where $c_g$ is marginal cost, $p_g$ is power output, $d$ is demand, and $\bar{p}
 - for wind and solar, the upper bound should be the *available* capacity (installed × availability factor), not the installed capacity.
 
 ### questions to answer
-
-1. which generators are dispatched and at what level?
-2. what is the total system cost for this hour?
-3. what is the shadow price of the demand constraint? which generator's marginal cost does it correspond to, and why?
-4. if demand increased by 1 mw, how much would total cost increase? how do you know this without re-solving?
-5. what is the "merit order" you observe? does it match what you'd expect from the cost data?
+- which generators are dispatched and at what level?
+	- cc gas turbine 1 = 1600
+	- cc gas turbine 2 = 1000
+	- coal 1 = 1200
+	- lignite 1 = 2800
+	- open cycle gas turbine = 30
+	- solar = 450
+	- wind = 1120
+- what is the total system cost for this hour?
+	- (the objective...) 267,160 EUR
+- what is the shadow price of the demand constraint? which generator's marginal cost does it correspond to, and why?
+	- to recap: the dual for a constraint is its shadow price; this refers to the change in the objective function by moving the constraint "out" by 1 unit
+	- in this case, that means increasing the demand by 1 unit
+	- the shadow price should be the cost of the marginal generator (assuming there is remaining capacity)
+	- in our case, this would be the open cycle gas turbine (the only generator which is partially dispatched), whose cost is 92
+	- this is indeed the output for `model.dual[model.demand_con]`
+- if demand increased by 1 mw, how much would total cost increase? how do you know this without re-solving?
+	- 92, see above
+- what is the "merit order" you observe? does it match what you'd expect from the cost data?
+	- the solver doesn't really solve them "in order", as a human would (?), but one could assemble this by simply ordering the model.generated values ascending by (marginal) cost
 
 ### verification
 
