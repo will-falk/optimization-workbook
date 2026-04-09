@@ -35,9 +35,9 @@ model.cap_con = pyo.Constraint(model.PLANTS, rule=capacity_rule)
 # demand constraint has no index — it's one rule about all plants together, so no set is passed to pyo.Constraint and the rule only takes m
 def demand_rule(model):
     return sum(model.generated[plant] for plant in model.PLANTS) >= model.DEMAND
+model.demand_con = pyo.Constraint(rule=demand_rule)
 
 # --- solving ---
-model.demand_con = pyo.Constraint(rule=demand_rule)
 
 solver = pyo.SolverFactory('glpk') 
 
