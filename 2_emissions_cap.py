@@ -4,8 +4,7 @@ model = pyo.ConcreteModel()
 
 # --- scalars/constants ---
 model.DEMAND = 8200
-model.EMISSIONS_CAP = 4774.4
-
+model.EMISSIONS_CAP = pyo.Param(initialize=1000, mutable=True)
 # --- sets ---
 model.PLANTS = pyo.Set(initialize= ['wind', 'solar', 'lignite_1', 'coal_1', 'ccgt_1', 'ccgt_2', 'ocgt_1'])
 
@@ -16,6 +15,7 @@ model.emissions = pyo.Param(model.PLANTS,initialize= {'lignite_1': 1.08, 'coal_1
 
 # --- duals ---
 model.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
+model.rc = pyo.Suffix(direction=pyo.Suffix.IMPORT)
 
 # --- decision variables ---
 #power generated
@@ -44,30 +44,31 @@ def emissions_rule(model):
     return sum(model.generated[plant] * model.emissions[plant] for plant in model.PLANTS) <= model.EMISSIONS_CAP
 model.emissions_con = pyo.Constraint(rule=emissions_rule)
 
-# --- solving ---
+# --- solving via sensitivity analysis for emissions---
 
 solver = pyo.SolverFactory('glpk') 
+caps = [7000, 6000, 5000, 4774.4, 4000]
 
-result = solver.solve(model, tee=True) #verbose...
+for cap in caps:
+    model.EMISSIONS_CAP.set_value(cap)
+    result = solver.solve(model)
 
-model.display() #print model for reference
+    if result.solver.termination_condition == pyo.TerminationCondition.optimal:
+        print(f"ok?: {result.solver.status}")
+        print(f"\n*****************  FOR EMISSIONS AT {model.EMISSIONS_CAP.value}  *********************")
+        
+        model.display() #print model for reference
 
-print(result.solver.status) # looking for ok
+        print("\nDual values (shadow prices):")
+        print(f"  demand_con: {model.dual[model.demand_con]:.2f}  ← marginal cost of energy (market price)")
+        print(f"  emissions_con: {model.dual[model.emissions_con]:.2f}  ← cost of abatement")
 
-print(result.solver.termination_condition) # looking for optimal
+        print("\n  marginal cost per plant")
+        for plant in model.PLANTS:
+            print(f"  capacity_con[{plant}]: {model.dual[model.capacity_con[plant]]:.2f}")
 
-# --- duals ---
-print("\nDual values (shadow prices):")
-print(f"  demand_con: {model.dual[model.demand_con]:.2f}  ← marginal cost of energy (market price)")
-print(f"  emissions_con: {model.dual[model.emissions_con]:.2f}  ← cost of abatement \n")
+        print("\n  reduced cost of all decision variables")
+        for plant in model.PLANTS:
+            print(f" {plant}: {model.rc[model.generated[plant]]}")
+    
 
-print("  marginal cost per plant")
-for plant in model.PLANTS:
-    print(f"  capacity_con[{plant}]: {model.dual[model.capacity_con[plant]]:.2f}")
-
-
-# ---- checks ---
-# assert abs(pyo.value(model.obj) - 267160) < 1, f"objective should be 267,160, got {pyo.value(model.obj)}"
-# assert abs(pyo.value(model.generated['ocgt_1']) - 30) < 1, f"ocgt_1 should produce 30 mw"
-# assert abs(model.dual[model.demand_con] - 92) < 0.01, f"shadow price should be 92 €/mwh"
-# print("✓ all checks passed!")
